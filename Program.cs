@@ -9,8 +9,8 @@ namespace AoC_2021
             .GetTypes()
             .Where(x => typeof(Day).IsAssignableFrom(x) && !x.IsAbstract).Select(x => Activator.CreateInstance(x) as Day).ToList();
 
-            //days[days.Count-1].Run();
-            days[0].Run();
+            days[days.Count-1].Run();
+            //days[0].Run();
 
             Console.ReadLine();
             
