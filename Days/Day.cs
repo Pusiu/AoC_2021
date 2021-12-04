@@ -45,7 +45,7 @@ namespace AoC_2021
                 var client = new HttpClient();
                 var resp = await client.SendAsync(new HttpRequestMessage(HttpMethod.Get, url)
                 {
-                    Headers = { { "Cookie", cookie } }
+                    Headers = { { "cookie", cookie } }
                 });
                 var inp = await resp.Content.ReadAsStringAsync();
                 //var resp = await client.GetStringAsync(url);
