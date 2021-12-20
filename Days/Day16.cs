@@ -1,13 +1,13 @@
 using System.Text;
 namespace AoC_2021
 {
-    class Packet 
+    class Packet
     {
         public string version = "";
         public string type = "";
         public string data = "";
 
-        public string metadata="";
+        public string metadata = "";
 
         public int PacketLength => version.Length + type.Length + data.Length + metadata.Length;
 
@@ -17,15 +17,57 @@ namespace AoC_2021
         {
             return $"{version}{type}{metadata}{data}";
         }
+
+        public long GetValue()
+        {
+            long val = 0;
+            switch (Day16.BinaryToDecimal(type))
+            {
+                case 0:
+                    foreach (var p in subpackets)
+                    {
+                        val += p.GetValue();
+                    }
+                    break;
+                case 1:
+                    var k = subpackets[0].GetValue();
+                    for (int i = 1; i < subpackets.Count; i++)
+                    {
+                        k *= subpackets[i].GetValue();
+                    }
+                    val = k;
+                    break;
+                case 2:
+                    val = subpackets.Select(x => x.GetValue()).Min();
+                    break;
+                case 3:
+                    val = subpackets.Select(x => x.GetValue()).Max();
+                    break;
+                case 4:
+                    val = Day16.BinaryToDecimal(data);
+                    break;
+                case 5:
+                    val = subpackets[0].GetValue() > subpackets[1].GetValue() ? 1 : 0;
+                    break;
+                case 6:
+                    val = subpackets[0].GetValue() < subpackets[1].GetValue() ? 1 : 0;
+                    break;
+                case 7:
+                    val = subpackets[0].GetValue() == subpackets[1].GetValue() ? 1 : 0;
+                    break;
+            }
+
+            return val;
+        }
     }
 
     public class Day16 : Day
     {
-        int versionSum=0;
+        long versionSum = 0;
         public override string Part1()
         {
-            input = "C200B40A82";
-            //input= GetInput().Result.Trim();
+            //input = "C200B40A82";
+            input = GetInput().Result.Trim();
             var binary = HexToBinary(input);
             var p = ProcessPacket(binary);
 
@@ -34,64 +76,22 @@ namespace AoC_2021
 
         public override string Part2()
         {
-            input = "880086C3E88112";
-            //input= GetInput().Result.Trim();
+            input = GetInput().Result.Trim();
+            //input="9C005AC2F8F0";
             var binary = HexToBinary(input);
             var p = ProcessPacket(binary);
-            StringBuilder sb = new StringBuilder();
-            Dictionary<int, string> map = new Dictionary<int, string>()
-            {
-                {0, "+"},
-                {1, "*"},
-                {2, "min"},
-                {3, "max"},
-                {5, ">"},
-                {6, "<"},
-                {7, "="}
-            };
-            Queue<Packet> queue = new Queue<Packet>();
-            queue.Enqueue(p);
-            Stack<(int opcode, List<int> operands)> stack = new Stack<(int opcode, List<int> operands)>();
-            int indent=1;
-            while(queue.Count>0)
-            {
-                var packet = queue.Dequeue();
-                var type = BinaryToDecimal(packet.type);
-                if (map.ContainsKey(type))
-                {
-                    sb.Append(Enumerable.Range(0,indent).Select(x=>"\t").Aggregate((x,y)=>x+y));
-                    sb.Append(map[type]);
-                    sb.Append("\n");
-                }
-                else
-                {
-                    sb.Append(Enumerable.Range(0,indent).Select(x=>"\t").Aggregate((x,y)=>x+y));
-                    sb.Append(BinaryToDecimal(packet.data));
-                    sb.Append("\n");
-                }
-                if (packet.subpackets.Count > 0)                
-                {
-                    indent++;
-                    foreach (var subpacket in packet.subpackets)
-                    {
-                        queue.Enqueue(subpacket);
-                    }
-                }
-            }
 
-            Console.WriteLine(sb.ToString());
-
-            return base.Part2();
+            return p.GetValue().ToString();
         }
 
-        Packet ProcessPacket(string binary)
+        Packet ProcessPacket(string binary, bool log = false)
         {
             Packet p = new Packet();
             p.version = binary.Substring(0, 3);
             versionSum += BinaryToDecimal(p.version);
             p.type = binary.Substring(3, 3);
             var t = BinaryToDecimal(p.type);
-            var i=6;
+            var i = 6;
             if (t == 4)
             {
                 var d = ReadData(binary.Substring(i));
@@ -101,12 +101,12 @@ namespace AoC_2021
             else
             {
                 var lengthTypeId = binary[i++];
-                p.metadata+=lengthTypeId;
+                p.metadata += lengthTypeId;
                 if (lengthTypeId == '1')
                 {
                     var totalNumberOfSubpackets = BinaryToDecimal(binary.Substring(i, 11));
-                    p.metadata+=binary.Substring(i, 11);
-                    i+=11;
+                    p.metadata += binary.Substring(i, 11);
+                    i += 11;
                     for (int j = 0; j < totalNumberOfSubpackets; j++)
                     {
                         var subPacket = ProcessPacket(binary.Substring(i));
@@ -118,26 +118,29 @@ namespace AoC_2021
                 else
                 {
                     var totalLengthInBits = BinaryToDecimal(binary.Substring(i, 15));
-                    p.metadata+=binary.Substring(i, 15);
-                    i+=15;
-                    var currentLength=0;
+                    p.metadata += binary.Substring(i, 15);
+                    i += 15;
+                    var currentLength = 0;
                     while (currentLength < totalLengthInBits)
                     {
                         Packet sp = ProcessPacket(binary.Substring(i));
-                        currentLength+=sp.PacketLength;
-                        i+=sp.PacketLength;
-                        p.data+=sp.ToString();
+                        currentLength += sp.PacketLength;
+                        i += sp.PacketLength;
+                        p.data += sp.ToString();
                         p.subpackets.Add(sp);
                     }
                 }
             }
 
-            string s = $"Packet read, length: {p.PacketLength} version: {p.version}({BinaryToDecimal(p.version)}), type: {p.type}({BinaryToDecimal(p.type)}), data (length: {p.data.Length}): {p.data}";
-            if (p.type == "100")
+            if (log)
             {
-                s += $", decimal value: {BinaryToDecimal(p.data)}";
+                string s = $"Packet read, length: {p.PacketLength} version: {p.version}({BinaryToDecimal(p.version)}), type: {p.type}({BinaryToDecimal(p.type)}), data (length: {p.data.Length}): {p.data}";
+                if (p.type == "100")
+                {
+                    s += $", decimal value: {BinaryToDecimal(p.data)}";
+                }
+                Console.WriteLine(s);
             }
-            Console.WriteLine(s);
             return p;
         }
 
@@ -145,7 +148,7 @@ namespace AoC_2021
         {
             StringBuilder data = new StringBuilder();
             StringBuilder metadata = new StringBuilder();
-            int i=0;
+            int i = 0;
             while (i < dataBlock.Length)
             {
                 char flag = dataBlock[i];
@@ -153,17 +156,17 @@ namespace AoC_2021
                 data.Append(dataBlock, i + 1, 4);
                 if (flag == '0')
                     break;
-                i+=5;
+                i += 5;
             }
             return (data.ToString(), metadata.ToString());
         }
 
-        int BinaryToDecimal(string binary)
+        public static long BinaryToDecimal(string binary)
         {
-            int result = 0;
+            long result = 0;
             for (int i = 0; i < binary.Length; i++)
             {
-                result += (int)Math.Pow(2, binary.Length - i - 1) * (binary[i] - '0');
+                result += (long)Math.Pow(2, binary.Length - i - 1) * (binary[i] - '0');
             }
             return result;
         }
